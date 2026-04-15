@@ -134,7 +134,7 @@ export default function UppValueApp(){
     </div>
 
     {/* MAIN */}
-    <div style={{flex:1,padding:"16px 20px",maxWidth:1100,overflow:"auto"}}>
+    <div style={{flex:1,padding:"16px 20px",maxWidth:" 100%\,overflow:"auto"}}>
 
       {/* ADD MODAL */}
       {showAdd&&<div style={{position:"fixed",inset:0,background:"#000c",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}} onClick={()=>setShowAdd(false)}>
