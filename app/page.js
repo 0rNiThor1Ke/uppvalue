@@ -125,7 +125,7 @@ export default function UppValueApp(){
     {/* SIDEBAR */}
     <div style={{width:72,minHeight:"100vh",background:V.card,borderRight:"1px solid "+V.border,padding:"12px 0",display:"flex",flexDirection:"column",alignItems:"center",position:"sticky",top:0,flexShrink:0}}>
       <div style={{marginBottom:20,cursor:"pointer"}} onClick={()=>setTab("home")}>
-        <div style={{width:40,height:40,borderRadius:10,background:V.green+"22",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{color:V.green,fontSize:22,fontWeight:900}}><Logo color={V.green} size={24}/></</div>
+        <div style={{width:40,height:40,borderRadius:10,background:V.green+"22",display:"flex",alignItems:"center",justifyContent:"center"}}><Logo color={V.green} size={24}/></div>
       </div>
       <nav style={{flex:1,display:"flex",flexDirection:"column",gap:4,width:"100%",padding:"0 8px"}}>
         {navItems.map(n=>
