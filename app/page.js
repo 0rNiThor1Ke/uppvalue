@@ -2,7 +2,7 @@
 import{useState,useEffect,useMemo,useCallback}from"react";
 import{ResponsiveContainer,AreaChart,Area,LineChart,Line,BarChart,Bar,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,Legend,ReferenceLine}from"recharts";
 
-const Logo=({color="currentColor",size=28})=>(
+const AppLogo=({color="currentColor",size=28})=>(
 <svg width={size} height={size} viewBox="0 0 100 109" fill={color} fillRule="evenodd">
 <path d="M35.96,67.57L33.99,67.31L32.3,66.28L16.71,51.68L15.87,49.61L16.71,45.74L19.38,43.28L24.72,47.93L34.41,39.02L35.81,36.43L35.81,33.33L33.01,29.46L28.93,26.74L25,26.74L22.75,27.78L12.08,37.6L10.11,38.63L6.18,38.37L2.67,35.4L17.7,21.58L20.79,20.03L24.44,18.99L30.9,19.25L32.87,19.77L36.8,21.83L41.71,26.61L43.96,31.27L44.24,36.43L42.28,42.12L39.47,45.48L30.76,53.23L41.71,63.57L38.2,66.8ZM80.34,97.29L74.3,91.47L81.6,85.01L81.6,84.5L78.37,81.78L72.47,87.21L67.28,82.69L66.71,81.65L72.33,76.49L72.33,75.97L42.28,48.32L45.37,45.22L47.19,41.99L97.05,87.6L97.05,88.11L91.29,93.41L87.64,90.31ZM59.27,47.16L48.74,37.98L48.46,33.07L60.25,21.96L61.1,20.16L61.1,17.05L59.69,14.47L55.62,10.98L53.93,10.21L50.56,10.21L46.91,12.27L39.61,18.99L37.08,17.18L31.88,15.25L42.42,5.56L48.03,2.97L51.97,2.45L55.34,2.71L60.39,4.52L64.04,7.11L66.43,9.56L68.68,13.18L69.24,14.99L69.52,20.93L68.12,25.06L65.31,28.68L58.01,35.14L65.03,41.6Z"/>
 </svg>);
@@ -125,7 +125,7 @@ export default function UppValueApp(){
     {/* SIDEBAR */}
     <div style={{width:72,minHeight:"100vh",background:V.card,borderRight:"1px solid "+V.border,padding:"12px 0",display:"flex",flexDirection:"column",alignItems:"center",position:"sticky",top:0,flexShrink:0}}>
       <div style={{marginBottom:20,cursor:"pointer"}} onClick={()=>setTab("home")}>
-        <div style={{width:40,height:40,borderRadius:10,background:V.green+"22",display:"flex",alignItems:"center",justifyContent:"center"}}><Logo color={V.green} size={24}/></div>
+        <div style={{width:40,height:40,borderRadius:10,background:V.green+"22",display:"flex",alignItems:"center",justifyContent:"center"}}><AppLogo color={V.green} size={24}/></div>
       </div>
       <nav style={{flex:1,display:"flex",flexDirection:"column",gap:4,width:"100%",padding:"0 8px"}}>
         {navItems.map(n=>
@@ -172,7 +172,7 @@ export default function UppValueApp(){
         </div>
       </div>}
 
-      {/* ═══ HOME ═══ */}
+      {/* âââ HOME âââ */}
       {tab==="home"&&<div style={{display:"flex",flexDirection:"column",gap:16}}>
         {/* Search bar */}
         <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -270,7 +270,7 @@ export default function UppValueApp(){
         </div>}
       </div>}
 
-      {/* ═══ PORTFOLIO ═══ */}
+      {/* âââ PORTFOLIO âââ */}
       {tab==="portfolio"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Portefeuille</h2><button onClick={()=>{setShowAdd(true);setAddMode("portfolio");}} style={bg}>+ Position</button></div>
         {portfolio.length===0?<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Ajoutez votre premiere position</div>:<>
@@ -294,7 +294,7 @@ export default function UppValueApp(){
         </>}
       </div>}
 
-      {/* ═══ WATCHLIST ═══ */}
+      {/* âââ WATCHLIST âââ */}
       {tab==="watchlist"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Watchlist</h2><button onClick={()=>{setShowAdd(true);setAddMode("watchlist");}} style={bg}>+ Ticker</button></div>
         {watchlist.length===0?<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Ajoutez des tickers</div>:
@@ -314,7 +314,7 @@ export default function UppValueApp(){
           </div>;})}
       </div>}
 
-      {/* ═══ CHARTS ═══ */}
+      {/* âââ CHARTS âââ */}
       {tab==="charts"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Graphiques vs S&P 500</h2>
         <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
@@ -349,7 +349,7 @@ export default function UppValueApp(){
         </div>:<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Selectionnez un ticker</div>}
       </div>}
 
-      {/* ═══ SCREENER (S&P Table) ═══ */}
+      {/* âââ SCREENER (S&P Table) âââ */}
       {tab==="screener"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Screener</h2>
         {enrichedP.length===0?<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Ajoutez des positions pour voir les donnees</div>:
@@ -368,7 +368,7 @@ export default function UppValueApp(){
           </table></div>}
       </div>}
 
-      {/* ═══ DCF ═══ */}
+      {/* âââ DCF âââ */}
       {tab==="dcf"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Valeur Intrinseque (DCF)</h2>
         <div style={cs}>
