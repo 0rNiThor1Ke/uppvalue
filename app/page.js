@@ -12,7 +12,7 @@ const TIER_C={1:V.green,2:V.gold,3:V.blue};
 const TIER_L={1:"Achat Immediat",2:"Surveillance",3:"Long Terme"};
 const SECTOR_C={"Technologie":V.blue,"Finance":V.purple,"Industrie":V.orange,"Consommation":"#E91E63","Sante":V.cyan,"Matiere premiere":V.green,"Energie":V.orange,"ETF":V.gold,"Crypto":"#FF6B35","Autre":"#888"};
 const DOMAINS={AMZN:"amazon.com",MSFT:"microsoft.com",AAPL:"apple.com",GOOGL:"google.com",GOOG:"google.com",META:"meta.com",NVDA:"nvidia.com",TSLA:"tesla.com","SU.PA":"se.com","AI.PA":"airliquide.com","MC.PA":"lvmh.com",SPGI:"spglobal.com",MA:"mastercard.com",FTNT:"fortinet.com",MELI:"mercadolibre.com",CCJ:"cameco.com",GLD:"spdrgoldshares.com",V:"visa.com",JPM:"jpmorganchase.com",NFLX:"netflix.com",COST:"costco.com",ADBE:"adobe.com",CRM:"salesforce.com",COIN:"coinbase.com",NET:"cloudflare.com",AMD:"amd.com",ASML:"asml.com",BKNG:"booking.com","RMS.PA":"hermes.com",FICO:"fico.com",NVO:"novonordisk.com","BTC-USD":"bitcoin.org","ETH-USD":"ethereum.org",CRCL:"circle.com"};
-const getLogo=t=>{const d=DOMAINS[t];return d?`https://logo.clearbit.com/${d}`:`/api/logo?t=${encodeURIComponent(t)}`;};
+const getLogo=t=>{const d=DOMAINS[t];return d?`https://icon.horse/icon/${d}`:`/api/logo?t=${encodeURIComponent(t)}`;};
 const fmt=n=>new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(n);
 const fmtN=n=>n==null?"---":n>1e6?(n/1e6).toFixed(2)+" M":n>1e3?(n/1e3).toFixed(2)+" K":n.toLocaleString("fr-FR",{maximumFractionDigits:2});
 const fmtU=n=>n==null?"---":n<1?n.toFixed(4)+" $":n.toLocaleString("fr-FR",{maximumFractionDigits:2})+" $";
@@ -196,7 +196,7 @@ export default function UppValueApp(){
         </div>
       </div>}
 
-      {/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ HOME ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */}
+      {/* ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ HOME ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ */}
       {tab==="home"&&<div style={{display:"flex",flexDirection:"column",gap:16}}>
         {/* Search bar */}
         <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -294,7 +294,7 @@ export default function UppValueApp(){
         </div>}
       </div>}
 
-      {/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ PORTFOLIO ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */}
+      {/* ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ PORTFOLIO ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ */}
       {tab==="portfolio"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Portefeuille</h2><button onClick={()=>{setShowAdd(true);setAddMode("portfolio");}} style={bg}>+ Position</button></div>
         {portfolio.length===0?<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Ajoutez votre premiere position</div>:<>
@@ -318,7 +318,7 @@ export default function UppValueApp(){
         </>}
       </div>}
 
-      {/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ WATCHLIST ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */}
+      {/* ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ WATCHLIST ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ */}
       {tab==="watchlist"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Watchlist</h2><button onClick={()=>{setShowAdd(true);setAddMode("watchlist");}} style={bg}>+ Ticker</button></div>
         {watchlist.length===0?<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Ajoutez des tickers</div>:
@@ -338,7 +338,7 @@ export default function UppValueApp(){
           </div>;})}
       </div>}
 
-      {/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ CHARTS ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */}
+      {/* ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ CHARTS ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ */}
       {tab==="charts"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Graphiques vs S&P 500</h2>
         <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
@@ -373,7 +373,7 @@ export default function UppValueApp(){
         </div>:<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Selectionnez un ticker</div>}
       </div>}
 
-      {/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ SCREENER (S&P Table) ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */}
+      {/* ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ SCREENER (S&P Table) ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ */}
       {tab==="screener"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Screener</h2>
         {enrichedP.length===0?<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Ajoutez des positions pour voir les donnees</div>:
@@ -392,7 +392,7 @@ export default function UppValueApp(){
           </table></div>}
       </div>}
 
-      {/* ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ DCF ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ */}
+      {/* ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ DCF ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ */}
       {tab==="dcf"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Valeur Intrinseque (DCF)</h2>
         <div style={cs}>
