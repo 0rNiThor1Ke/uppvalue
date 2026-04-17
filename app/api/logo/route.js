@@ -8,13 +8,13 @@ export async function GET(request) {
   if (!t) return new Response("Missing ticker", { status: 400 });
 
   if (KNOWN[t]) {
-    return Response.redirect(`https://logo.clearbit.com/${KNOWN[t]}`, 302);
+    return Response.redirect(`https://icon.horse/icon/${KNOWN[t]}`, 302);
   }
 
   if (cache.has(t)) {
     const d = cache.get(t);
     if (d === null) return Response.json({ fallback: true }, { status: 404 });
-    return Response.redirect(`https://logo.clearbit.com/${d}`, 302);
+    return Response.redirect(`https://icon.horse/icon/${d}`, 302);
   }
 
   try {
@@ -26,7 +26,7 @@ export async function GET(request) {
       if (profile?.website) {
         const domain = profile.website.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "");
         cache.set(t, domain);
-        return Response.redirect(`https://logo.clearbit.com/${domain}`, 302);
+        return Response.redirect(`https://icon.horse/icon/${domain}`, 302);
       }
     }
 
@@ -39,7 +39,7 @@ export async function GET(request) {
         const guess = cleaned.split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, "") + ".com";
         if (guess.length > 4) {
           cache.set(t, guess);
-          return Response.redirect(`https://logo.clearbit.com/${guess}`, 302);
+          return Response.redirect(`https://icon.horse/icon/${guess}`, 302);
         }
       }
     }
