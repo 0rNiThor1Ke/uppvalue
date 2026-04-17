@@ -1,5 +1,5 @@
 "use client";
-import{useState,useEffect,useMemo,useCallback}from"react";
+import{useState,useEffect,useMemo,useCallback,useRef}from"react";
 import{ResponsiveContainer,AreaChart,Area,LineChart,Line,BarChart,Bar,PieChart,Pie,Cell,XAxis,YAxis,CartesianGrid,Tooltip,Legend,ReferenceLine}from"recharts";
 
 const AppLogo=({color="currentColor",size=28})=>(
@@ -66,6 +66,9 @@ export default function UppValueApp(){
   const[addData,setAddData]=useState(null);
   const[addFetching,setAddFetching]=useState(false);
   const[addForm,setAddForm]=useState({qty:"",pru:"",date:"",tier:1,target:"",sector:"Tech",type:"stock",name:""});
+  const[searchResults,setSearchResults]=useState([]);
+  const[searchLoading,setSearchLoading]=useState(false);
+  const searchTimer=useRef(null);
   const[dcf,setDcf]=useState({fcf:"5000",g:"15",wacc:"10",tg:"3",sh:"1000"});
   const[selChart,setSelChart]=useState(null);
   const[chartData,setChartData]=useState(null);
@@ -103,8 +106,10 @@ export default function UppValueApp(){
 
   const dcfR=useMemo(()=>{const f=parseFloat(dcf.fcf)||0,g=(parseFloat(dcf.g)||0)/100,w=(parseFloat(dcf.wacc)||10)/100,tg=(parseFloat(dcf.tg)||0)/100,sh=parseFloat(dcf.sh)||1;if(w<=tg)return{proj:[],ev:0,tvPV:0,fair:"N/A"};let ev=0;const proj=[];for(let y=1;y<=10;y++){const fc=f*Math.pow(1+g,y),pv=fc/Math.pow(1+w,y);ev+=pv;proj.push({year:"A"+y,fcf:Math.round(fc),pv:Math.round(pv)});}const tv=f*Math.pow(1+g,10)*(1+tg)/(w-tg),tvPV=tv/Math.pow(1+w,10);ev+=tvPV;return{proj,ev:Math.round(ev),tvPV:Math.round(tvPV),fair:(ev/sh).toFixed(2)};},[dcf]);
 
-  const handleFetch=async()=>{if(!addTicker.trim())return;setAddFetching(true);const d=await fetchPrice(addTicker.trim().toUpperCase());setAddData(d);if(d){setAddForm(f=>({...f,pru:d.price?.toFixed(2)||"",name:d.name||addTicker.toUpperCase()}));setPrices(p=>({...p,[addTicker.trim().toUpperCase()]:d}));}setAddFetching(false);};
-  const handleAdd=()=>{const tk=addTicker.trim().toUpperCase();if(!tk)return;if(addMode==="portfolio"){const q=parseFloat(addForm.qty),pr=parseFloat(addForm.pru);if(!q||!pr)return;const np=[...portfolio,{id:Date.now(),ticker:tk,name:addForm.name||tk,qty:q,pru:pr,date:addForm.date||new Date().toISOString().split("T")[0],sector:addForm.sector,type:addForm.type}];setPortfolio(np);save(np,null);}else{const nw=[...watchlist,{id:Date.now(),ticker:tk,name:addForm.name||tk,tier:parseInt(addForm.tier)||1,tp:parseFloat(addForm.target)||0,sector:addForm.sector,type:addForm.type}];setWatchlist(nw);save(null,nw);}setShowAdd(false);setAddTicker("");setAddData(null);setAddForm({qty:"",pru:"",date:"",tier:1,target:"",sector:"Tech",type:"stock",name:""});};
+  const handleFetch=async()=>{if(!addTicker.trim())return;setAddFetching(true);setSearchResults([]);const d=await fetchPrice(addTicker.trim().toUpperCase());setAddData(d);if(d){setAddForm(f=>({...f,pru:d.price?.toFixed(2)||"",name:d.name||addTicker.toUpperCase()}));setPrices(p=>({...p,[addTicker.trim().toUpperCase()]:d}));}setAddFetching(false);};
+  const handleTickerSearch=(val)=>{setAddTicker(val);setAddData(null);if(searchTimer.current)clearTimeout(searchTimer.current);if(val.length<1){setSearchResults([]);return;}setSearchLoading(true);searchTimer.current=setTimeout(async()=>{try{const r=await fetch("/api/search?q="+encodeURIComponent(val));const d=await r.json();setSearchResults(d.results||[]);}catch(e){setSearchResults([]);}setSearchLoading(false);},300);};
+  const handleSelectResult=(r)=>{setAddTicker(r.symbol);setSearchResults([]);setAddFetching(true);fetchPrice(r.symbol).then(d=>{setAddData(d);if(d){setAddForm(f=>({...f,pru:d.price?.toFixed(2)||"",name:d.name||r.name,type:r.type==="equity"?"stock":r.type||"stock"}));setPrices(p=>({...p,[r.symbol]:d}));}setAddFetching(false);});};
+  const handleAdd=()=>{const tk=addTicker.trim().toUpperCase();if(!tk)return;if(addMode==="portfolio"){const q=parseFloat(addForm.qty),pr=parseFloat(addForm.pru);if(!q||!pr)return;const np=[...portfolio,{id:Date.now(),ticker:tk,name:addForm.name||tk,qty:q,pru:pr,date:addForm.date||new Date().toISOString().split("T")[0],sector:addForm.sector,type:addForm.type}];setPortfolio(np);save(np,null);}else{const nw=[...watchlist,{id:Date.now(),ticker:tk,name:addForm.name||tk,tier:parseInt(addForm.tier)||1,tp:parseFloat(addForm.target)||0,sector:addForm.sector,type:addForm.type}];setWatchlist(nw);save(null,nw);}setShowAdd(false);setAddTicker("");setAddData(null);setSearchResults([]);setAddForm({qty:"",pru:"",date:"",tier:1,target:"",sector:"Tech",type:"stock",name:""});};
 
   const cs={background:V.card,border:"1px solid "+V.border,borderRadius:12,padding:16};
   const is={background:V.card2,border:"1px solid "+V.border,borderRadius:8,padding:"9px 12px",color:V.txt,fontSize:13,outline:"none",width:"100%",boxSizing:"border-box"};
@@ -148,9 +153,28 @@ export default function UppValueApp(){
           <div style={{display:"flex",gap:4,marginBottom:16,background:V.card2,borderRadius:8,padding:3}}>
             {["portfolio","watchlist"].map(m=><button key={m} onClick={()=>setAddMode(m)} style={{flex:1,padding:8,borderRadius:6,border:"none",background:addMode===m?V.card3:"transparent",color:addMode===m?V.txt:V.txD,cursor:"pointer",fontSize:12,fontWeight:addMode===m?600:400}}>{m==="portfolio"?"Portefeuille":"Watchlist"}</button>)}
           </div>
-          <div style={{display:"flex",gap:8,marginBottom:16}}>
-            <input value={addTicker} onChange={e=>setAddTicker(e.target.value.toUpperCase())} placeholder="AAPL, MSFT, BTC-USD..." style={{...is,flex:1,fontSize:15,fontWeight:600}} onKeyDown={e=>e.key==="Enter"&&handleFetch()}/>
-            <button onClick={handleFetch} disabled={addFetching} style={{...bg,opacity:addFetching?.5:1}}>Chercher</button>
+          <div style={{position:"relative",marginBottom:16}}>
+            <div style={{display:"flex",gap:8}}>
+              <div style={{flex:1,position:"relative"}}>
+                <span style={{position:"absolute",left:12,top:11,fontSize:14,color:V.txD}}>&#x1F50D;</span>
+                <input value={addTicker} onChange={e=>handleTickerSearch(e.target.value.toUpperCase())} placeholder="Rechercher... (ex: Apple, MSFT, Bitcoin)" style={{...is,flex:1,fontSize:15,fontWeight:600,paddingLeft:36}} onKeyDown={e=>e.key==="Enter"&&handleFetch()} autoFocus/>
+              </div>
+              {addFetching&&<div style={{display:"flex",alignItems:"center",color:V.txD,fontSize:12}}>...</div>}
+            </div>
+            {searchResults.length>0&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:V.card2,border:"1px solid "+V.border,borderRadius:10,marginTop:4,maxHeight:280,overflowY:"auto",zIndex:10}}>
+              {searchResults.map((r,i)=><div key={r.symbol+i} onClick={()=>handleSelectResult(r)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid "+V.border+"44"}} onMouseEnter={e=>e.currentTarget.style.background=V.card3} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <Logo ticker={r.symbol} size={28}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:700,fontSize:13}}>{r.symbol}</div>
+                  <div style={{fontSize:11,color:V.txD,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name}</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <span style={{fontSize:10,padding:"2px 6px",borderRadius:4,background:r.type==="equity"?V.blue+"22":r.type==="etf"?V.gold+"22":r.type==="cryptocurrency"?V.orange+"22":V.purple+"22",color:r.type==="equity"?V.blue:r.type==="etf"?V.gold:r.type==="cryptocurrency"?V.orange:V.purple}}>{r.type==="equity"?"Stock":r.type==="etf"?"ETF":r.type==="cryptocurrency"?"Crypto":r.type}</span>
+                  <div style={{fontSize:10,color:V.txD,marginTop:2}}>{r.exchange}</div>
+                </div>
+              </div>)}
+            </div>}
+            {searchLoading&&searchResults.length===0&&addTicker.length>0&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:V.card2,border:"1px solid "+V.border,borderRadius:10,marginTop:4,padding:16,textAlign:"center",color:V.txD,fontSize:12}}>Recherche...</div>}
           </div>
           {addData&&<div style={{background:V.card2,borderRadius:10,padding:14,marginBottom:16,border:"1px solid "+V.green+"33",display:"flex",alignItems:"center",gap:12}}>
             <Logo ticker={addTicker} size={40}/>
@@ -172,7 +196,7 @@ export default function UppValueApp(){
         </div>
       </div>}
 
-      {/* âââ HOME âââ */}
+      {/* Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ HOME Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ */}
       {tab==="home"&&<div style={{display:"flex",flexDirection:"column",gap:16}}>
         {/* Search bar */}
         <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -270,7 +294,7 @@ export default function UppValueApp(){
         </div>}
       </div>}
 
-      {/* âââ PORTFOLIO âââ */}
+      {/* Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ PORTFOLIO Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ */}
       {tab==="portfolio"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Portefeuille</h2><button onClick={()=>{setShowAdd(true);setAddMode("portfolio");}} style={bg}>+ Position</button></div>
         {portfolio.length===0?<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Ajoutez votre premiere position</div>:<>
@@ -294,7 +318,7 @@ export default function UppValueApp(){
         </>}
       </div>}
 
-      {/* âââ WATCHLIST âââ */}
+      {/* Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ WATCHLIST Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ */}
       {tab==="watchlist"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Watchlist</h2><button onClick={()=>{setShowAdd(true);setAddMode("watchlist");}} style={bg}>+ Ticker</button></div>
         {watchlist.length===0?<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Ajoutez des tickers</div>:
@@ -314,7 +338,7 @@ export default function UppValueApp(){
           </div>;})}
       </div>}
 
-      {/* âââ CHARTS âââ */}
+      {/* Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ CHARTS Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ */}
       {tab==="charts"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Graphiques vs S&P 500</h2>
         <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
@@ -349,7 +373,7 @@ export default function UppValueApp(){
         </div>:<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Selectionnez un ticker</div>}
       </div>}
 
-      {/* âââ SCREENER (S&P Table) âââ */}
+      {/* Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ SCREENER (S&P Table) Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ */}
       {tab==="screener"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Screener</h2>
         {enrichedP.length===0?<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Ajoutez des positions pour voir les donnees</div>:
@@ -368,7 +392,7 @@ export default function UppValueApp(){
           </table></div>}
       </div>}
 
-      {/* âââ DCF âââ */}
+      {/* Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ DCF Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂ */}
       {tab==="dcf"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Valeur Intrinseque (DCF)</h2>
         <div style={cs}>
