@@ -13,9 +13,7 @@ const TIER_L={1:"Achat Immediat",2:"Surveillance",3:"Long Terme"};
 const SECTOR_C={"Technologie":V.blue,"Finance":V.purple,"Industrie":V.orange,"Consommation":"#E91E63","Sante":V.cyan,"Matiere premiere":V.green,"Energie":V.orange,"ETF":V.gold,"Crypto":"#FF6B35","Autre":"#888"};
 const DOMAINS={AMZN:"amazon.com",MSFT:"microsoft.com",AAPL:"apple.com",GOOGL:"google.com",GOOG:"google.com",META:"meta.com",NVDA:"nvidia.com",TSLA:"tesla.com","SU.PA":"se.com","AI.PA":"airliquide.com","MC.PA":"lvmh.com",SPGI:"spglobal.com",MA:"mastercard.com",FTNT:"fortinet.com",MELI:"mercadolibre.com",CCJ:"cameco.com",GLD:"spdrgoldshares.com",V:"visa.com",JPM:"jpmorganchase.com",NFLX:"netflix.com",COST:"costco.com",ADBE:"adobe.com",CRM:"salesforce.com",COIN:"coinbase.com",NET:"cloudflare.com",AMD:"amd.com",ASML:"asml.com",BKNG:"booking.com","RMS.PA":"hermes.com",FICO:"fico.com",NVO:"novonordisk.com","BTC-USD":"bitcoin.org","ETH-USD":"ethereum.org",CRCL:"circle.com"};
 const getLogo=t=>{const d=DOMAINS[t];return d?`https://icon.horse/icon/${d}`:`/api/logo?t=${encodeURIComponent(t)}`;};
-const fmt=n=>new Intl.NumberFormat("fr-FR",{style:"currency",currency:"EUR",maximumFractionDigits:0}).format(n);
 const fmtN=n=>n==null?"---":n>1e6?(n/1e6).toFixed(2)+" M":n>1e3?(n/1e3).toFixed(2)+" K":n.toLocaleString("fr-FR",{maximumFractionDigits:2});
-const fmtU=n=>n==null?"---":n<1?n.toFixed(4)+" $":n.toLocaleString("fr-FR",{maximumFractionDigits:2})+" $";
 const fmtP=n=>n==null?"---":(n>=0?"+":"")+n.toFixed(2)+"%";
 
 // Market hours data
@@ -73,9 +71,16 @@ export default function UppValueApp(){
   const[selChart,setSelChart]=useState(null);
   const[chartData,setChartData]=useState(null);
   const[clock,setClock]=useState(new Date());
+  const[displayCur,setDisplayCur]=useState("USD");
+  const[fxRate,setFxRate]=useState(null);
+
+  const cvt=useCallback((n)=>{if(n==null)return null;if(displayCur==="EUR"&&fxRate)return n*fxRate;return n;},[displayCur,fxRate]);
+  const fmt=useCallback((n)=>n==null?"---":new Intl.NumberFormat("fr-FR",{style:"currency",currency:displayCur,maximumFractionDigits:0}).format(n),[displayCur]);
+  const fmtU=useCallback((n)=>{if(n==null)return"---";const sym=displayCur==="EUR"?"\u20ac":"$";return n<1?n.toFixed(4)+" "+sym:n.toLocaleString("fr-FR",{maximumFractionDigits:2})+" "+sym;},[displayCur]);
 
   // Clock
   useEffect(()=>{const t=setInterval(()=>setClock(new Date()),30000);return()=>clearInterval(t);},[]);
+  useEffect(()=>{(async()=>{try{const r=await fetch("/api/price?ticker=EURUSD=X");if(r.ok){const d=await r.json();if(d?.price)setFxRate(1/d.price);}}catch(e){}})();},[]);
 
   // Load from localStorage
   useEffect(()=>{try{const s=localStorage.getItem("uppvalue-v5");if(s){const d=JSON.parse(s);if(d.portfolio)setPortfolio(d.portfolio);if(d.watchlist)setWatchlist(d.watchlist);}}catch(e){}},[]);
@@ -100,8 +105,12 @@ export default function UppValueApp(){
   useEffect(()=>{if(portfolio.length>0||watchlist.length>0)refreshAll();},[portfolio.length,watchlist.length]);
   useEffect(()=>{if(!selChart)return;(async()=>{const d=await fetchChart(selChart);if(d)setChartData(d);})();},[selChart]);
 
-  const enrichedP=useMemo(()=>portfolio.map(p=>{const l=prices[p.ticker];const inv=p.qty*p.pru;const mk=l?.price?p.qty*l.price:null;const pl=mk!=null?mk-inv:null;return{...p,live:l?.price,chg:l?.changePct,inv,mk,pl,plP:inv>0&&pl!=null?(pl/inv)*100:null};}),[portfolio,prices]);
-  const enrichedW=useMemo(()=>watchlist.map(w=>{const l=prices[w.ticker];const gap=l?.price&&w.tp?((l.price-w.tp)/w.tp)*100:null;return{...w,live:l?.price,chg:l?.changePct,gap,atTarget:l?.price&&w.tp?l.price<=w.tp:false};}),[watchlist,prices]);
+  const enrichedP=useMemo(()=>{
+    const groups={};
+    portfolio.forEach(p=>{if(!groups[p.ticker])groups[p.ticker]={ticker:p.ticker,name:p.name,sector:p.sector,type:p.type,lots:[],totalQty:0,totalInv:0};const g=groups[p.ticker];g.lots.push(p);g.totalQty+=p.qty;g.totalInv+=p.qty*p.pru;g.name=p.name||g.name;});
+    return Object.values(groups).map(g=>{const pru=g.totalQty>0?g.totalInv/g.totalQty:0;const l=prices[g.ticker];const inv=cvt(g.totalInv);const liveRaw=l?.price;const live=cvt(liveRaw);const mk=live!=null?g.totalQty*live:null;const pl=mk!=null?mk-inv:null;return{...g,qty:g.totalQty,pru:cvt(pru),pruRaw:pru,inv,mk,live,liveRaw,chg:l?.changePct,pl,plP:inv>0&&pl!=null?(pl/inv)*100:null,id:g.lots[0]?.id};});
+  },[portfolio,prices,cvt]);
+  const enrichedW=useMemo(()=>watchlist.map(w=>{const l=prices[w.ticker];const lp=cvt(l?.price);const tp=cvt(w.tp);const gap=lp&&tp?((lp-tp)/tp)*100:null;return{...w,live:lp,chg:l?.changePct,gap,atTarget:lp&&tp?lp<=tp:false};}),[watchlist,prices,cvt]);
   const totInv=enrichedP.reduce((s,e)=>s+(e.inv||0),0);const totMk=enrichedP.reduce((s,e)=>s+(e.mk||0),0);const totPL=totMk-totInv;
 
   const dcfR=useMemo(()=>{const f=parseFloat(dcf.fcf)||0,g=(parseFloat(dcf.g)||0)/100,w=(parseFloat(dcf.wacc)||10)/100,tg=(parseFloat(dcf.tg)||0)/100,sh=parseFloat(dcf.sh)||1;if(w<=tg)return{proj:[],ev:0,tvPV:0,fair:"N/A"};let ev=0;const proj=[];for(let y=1;y<=10;y++){const fc=f*Math.pow(1+g,y),pv=fc/Math.pow(1+w,y);ev+=pv;proj.push({year:"A"+y,fcf:Math.round(fc),pv:Math.round(pv)});}const tv=f*Math.pow(1+g,10)*(1+tg)/(w-tg),tvPV=tv/Math.pow(1+w,10);ev+=tvPV;return{proj,ev:Math.round(ev),tvPV:Math.round(tvPV),fair:(ev/sh).toFixed(2)};},[dcf]);
@@ -145,6 +154,13 @@ export default function UppValueApp(){
 
     {/* MAIN */}
 <div style={{flex:1,padding:"16px 32px",maxWidth:1536,marginLeft:"auto",marginRight:"auto",overflow:"auto",width:"100%"}}>
+
+      {/* CURRENCY TOGGLE */}
+      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
+        <div style={{display:"flex",background:V.card2,borderRadius:8,padding:2,gap:2}}>
+          {["USD","EUR"].map(cu=><button key={cu} onClick={()=>setDisplayCur(cu)} style={{padding:"4px 12px",borderRadius:6,border:"none",background:displayCur===cu?V.green:"transparent",color:displayCur===cu?"#000":V.txD,cursor:"pointer",fontSize:11,fontWeight:displayCur===cu?700:400}}>{cu==="USD"?"$ USD":"\u20ac EUR"}</button>)}
+        </div>
+      </div>
 
       {/* ADD MODAL */}
       {showAdd&&<div style={{position:"fixed",inset:0,background:"#000c",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}} onClick={()=>setShowAdd(false)}>
@@ -196,7 +212,7 @@ export default function UppValueApp(){
         </div>
       </div>}
 
-      {/* ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ HOME ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ */}
+      {/* ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ HOME ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
       {tab==="home"&&<div style={{display:"flex",flexDirection:"column",gap:16}}>
         {/* Search bar */}
         <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -294,7 +310,7 @@ export default function UppValueApp(){
         </div>}
       </div>}
 
-      {/* ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ PORTFOLIO ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ */}
+      {/* ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ PORTFOLIO ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
       {tab==="portfolio"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Portefeuille</h2><button onClick={()=>{setShowAdd(true);setAddMode("portfolio");}} style={bg}>+ Position</button></div>
         {portfolio.length===0?<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Ajoutez votre premiere position</div>:<>
@@ -306,19 +322,19 @@ export default function UppValueApp(){
           {enrichedP.map(e=><div key={e.id} style={{...cs,padding:14}}>
             <div style={{display:"flex",alignItems:"center",gap:12}}>
               <Logo ticker={e.ticker} size={38}/>
-              <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14}}>{e.name} <span style={{fontSize:10,color:V.txD,fontFamily:"monospace"}}>{e.ticker}</span></div><div style={{fontSize:10,color:V.txD}}>{e.qty.toFixed(3)} x {fmtU(e.pru)} = {fmt(e.inv)}</div></div>
+              <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14}}>{e.name} <span style={{fontSize:10,color:V.txD,fontFamily:"monospace"}}>{e.ticker}</span>{e.lots&&e.lots.length>1&&<span style={{fontSize:9,color:V.gold,marginLeft:4}}>({e.lots.length} lots)</span>}</div><div style={{fontSize:10,color:V.txD}}>{e.qty.toFixed(3)} x {fmtU(e.pru)} = {fmt(e.inv)}</div></div>
               <div style={{textAlign:"right"}}>
                 {e.live&&<div style={{fontSize:18,fontWeight:800,fontFamily:"monospace"}}>{fmtU(e.live)}</div>}
                 {e.chg!=null&&<div style={{fontSize:11,color:e.chg>0?V.green:V.red,fontFamily:"monospace"}}>{fmtP(e.chg)}</div>}
                 {e.pl!=null&&<div style={{fontSize:13,fontWeight:700,color:e.pl>=0?V.green:V.red,fontFamily:"monospace"}}>{fmt(e.pl)} ({fmtP(e.plP)})</div>}
               </div>
-              <button onClick={()=>{const p=portfolio.filter(x=>x.id!==e.id);setPortfolio(p);save(p,null);}} style={{background:"transparent",border:"none",color:V.txD,cursor:"pointer",fontSize:16}}>X</button>
+              <button onClick={()=>{const p=portfolio.filter(x=>x.ticker!==e.ticker);setPortfolio(p);save(p,null);}} style={{background:"transparent",border:"none",color:V.txD,cursor:"pointer",fontSize:16}}>X</button>
             </div>
           </div>)}
         </>}
       </div>}
 
-      {/* ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ WATCHLIST ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ */}
+      {/* ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ WATCHLIST ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
       {tab==="watchlist"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Watchlist</h2><button onClick={()=>{setShowAdd(true);setAddMode("watchlist");}} style={bg}>+ Ticker</button></div>
         {watchlist.length===0?<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Ajoutez des tickers</div>:
@@ -338,7 +354,7 @@ export default function UppValueApp(){
           </div>;})}
       </div>}
 
-      {/* ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ CHARTS ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ */}
+      {/* ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ CHARTS ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
       {tab==="charts"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Graphiques vs S&P 500</h2>
         <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
@@ -373,7 +389,7 @@ export default function UppValueApp(){
         </div>:<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Selectionnez un ticker</div>}
       </div>}
 
-      {/* ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ SCREENER (S&P Table) ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ */}
+      {/* ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ SCREENER (S&P Table) ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
       {tab==="screener"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Screener</h2>
         {enrichedP.length===0?<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Ajoutez des positions pour voir les donnees</div>:
@@ -392,7 +408,7 @@ export default function UppValueApp(){
           </table></div>}
       </div>}
 
-      {/* ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ DCF ÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂ */}
+      {/* ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ DCF ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
       {tab==="dcf"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Valeur Intrinseque (DCF)</h2>
         <div style={cs}>
