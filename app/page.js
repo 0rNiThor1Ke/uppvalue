@@ -74,13 +74,13 @@ export default function UppValueApp(){
   const[displayCur,setDisplayCur]=useState("USD");
   const[fxRate,setFxRate]=useState(null);
 
-  const cvt=useCallback((n)=>{if(n==null)return null;if(displayCur==="EUR"&&fxRate)return n*fxRate;return n;},[displayCur,fxRate]);
+  const cvt=useCallback((n,fromCur)=>{if(n==null)return null;if(!fxRate||!fromCur)return n;const from=(fromCur||"USD").toUpperCase();if(from===displayCur)return n;if(from==="USD"&&displayCur==="EUR")return n/fxRate;if(from==="EUR"&&displayCur==="USD")return n*fxRate;return n;},[displayCur,fxRate]);
   const fmt=useCallback((n)=>n==null?"---":new Intl.NumberFormat("fr-FR",{style:"currency",currency:displayCur,maximumFractionDigits:0}).format(n),[displayCur]);
   const fmtU=useCallback((n)=>{if(n==null)return"---";const sym=displayCur==="EUR"?"\u20ac":"$";return n<1?n.toFixed(4)+" "+sym:n.toLocaleString("fr-FR",{maximumFractionDigits:2})+" "+sym;},[displayCur]);
 
   // Clock
   useEffect(()=>{const t=setInterval(()=>setClock(new Date()),30000);return()=>clearInterval(t);},[]);
-  useEffect(()=>{(async()=>{try{const r=await fetch("/api/price?ticker=EURUSD=X");if(r.ok){const d=await r.json();if(d?.price)setFxRate(1/d.price);}}catch(e){}})();},[]);
+  useEffect(()=>{(async()=>{try{const r=await fetch("/api/price?ticker=EURUSD=X");if(r.ok){const d=await r.json();if(d?.price)setFxRate(d.price);}}catch(e){}})();},[]);
 
   // Load from localStorage
   useEffect(()=>{try{const s=localStorage.getItem("uppvalue-v5");if(s){const d=JSON.parse(s);if(d.portfolio)setPortfolio(d.portfolio);if(d.watchlist)setWatchlist(d.watchlist);}}catch(e){}},[]);
@@ -108,9 +108,9 @@ export default function UppValueApp(){
   const enrichedP=useMemo(()=>{
     const groups={};
     portfolio.forEach(p=>{if(!groups[p.ticker])groups[p.ticker]={ticker:p.ticker,name:p.name,sector:p.sector,type:p.type,lots:[],totalQty:0,totalInv:0};const g=groups[p.ticker];g.lots.push(p);g.totalQty+=p.qty;g.totalInv+=p.qty*p.pru;g.name=p.name||g.name;});
-    return Object.values(groups).map(g=>{const pru=g.totalQty>0?g.totalInv/g.totalQty:0;const l=prices[g.ticker];const inv=cvt(g.totalInv);const liveRaw=l?.price;const live=cvt(liveRaw);const mk=live!=null?g.totalQty*live:null;const pl=mk!=null?mk-inv:null;return{...g,qty:g.totalQty,pru:cvt(pru),pruRaw:pru,inv,mk,live,liveRaw,chg:l?.changePct,pl,plP:inv>0&&pl!=null?(pl/inv)*100:null,id:g.lots[0]?.id};});
+    return Object.values(groups).map(g=>{const pru=g.totalQty>0?g.totalInv/g.totalQty:0;const l=prices[g.ticker];const cur=l?.currency||"USD";const inv=cvt(g.totalInv,cur);const liveRaw=l?.price;const live=cvt(liveRaw,cur);const pruC=cvt(pru,cur);const mk=live!=null?g.totalQty*live:null;const pl=mk!=null?mk-inv:null;return{...g,qty:g.totalQty,pru:pruC,pruRaw:pru,inv,mk,live,liveRaw,cur,chg:l?.changePct,pl,plP:inv>0&&pl!=null?(pl/inv)*100:null,id:g.lots[0]?.id};});
   },[portfolio,prices,cvt]);
-  const enrichedW=useMemo(()=>watchlist.map(w=>{const l=prices[w.ticker];const lp=cvt(l?.price);const tp=cvt(w.tp);const gap=lp&&tp?((lp-tp)/tp)*100:null;return{...w,live:lp,chg:l?.changePct,gap,atTarget:lp&&tp?lp<=tp:false};}),[watchlist,prices,cvt]);
+  const enrichedW=useMemo(()=>watchlist.map(w=>{const l=prices[w.ticker];const cur=l?.currency||"USD";const lp=cvt(l?.price,cur);const tp=cvt(w.tp,cur);const gap=lp&&tp?((lp-tp)/tp)*100:null;return{...w,live:lp,cur,chg:l?.changePct,gap,atTarget:lp&&tp?lp<=tp:false};}),[watchlist,prices,cvt]);
   const totInv=enrichedP.reduce((s,e)=>s+(e.inv||0),0);const totMk=enrichedP.reduce((s,e)=>s+(e.mk||0),0);const totPL=totMk-totInv;
 
   const dcfR=useMemo(()=>{const f=parseFloat(dcf.fcf)||0,g=(parseFloat(dcf.g)||0)/100,w=(parseFloat(dcf.wacc)||10)/100,tg=(parseFloat(dcf.tg)||0)/100,sh=parseFloat(dcf.sh)||1;if(w<=tg)return{proj:[],ev:0,tvPV:0,fair:"N/A"};let ev=0;const proj=[];for(let y=1;y<=10;y++){const fc=f*Math.pow(1+g,y),pv=fc/Math.pow(1+w,y);ev+=pv;proj.push({year:"A"+y,fcf:Math.round(fc),pv:Math.round(pv)});}const tv=f*Math.pow(1+g,10)*(1+tg)/(w-tg),tvPV=tv/Math.pow(1+w,10);ev+=tvPV;return{proj,ev:Math.round(ev),tvPV:Math.round(tvPV),fair:(ev/sh).toFixed(2)};},[dcf]);
@@ -156,7 +156,8 @@ export default function UppValueApp(){
 <div style={{flex:1,padding:"16px 32px",maxWidth:1536,marginLeft:"auto",marginRight:"auto",overflow:"auto",width:"100%"}}>
 
       {/* CURRENCY TOGGLE */}
-      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:8}}>
+      <div style={{display:"flex",justifyContent:"flex-end",alignItems:"center",marginBottom:8,gap:8}}>
+        {fxRate&&<span style={{fontSize:10,color:V.txD,fontFamily:"monospace"}}>1€ = {fxRate.toFixed(4)}$</span>}
         <div style={{display:"flex",background:V.card2,borderRadius:8,padding:2,gap:2}}>
           {["USD","EUR"].map(cu=><button key={cu} onClick={()=>setDisplayCur(cu)} style={{padding:"4px 12px",borderRadius:6,border:"none",background:displayCur===cu?V.green:"transparent",color:displayCur===cu?"#000":V.txD,cursor:"pointer",fontSize:11,fontWeight:displayCur===cu?700:400}}>{cu==="USD"?"$ USD":"\u20ac EUR"}</button>)}
         </div>
@@ -212,7 +213,7 @@ export default function UppValueApp(){
         </div>
       </div>}
 
-      {/* ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ HOME ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
+      {/* ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ HOME ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
       {tab==="home"&&<div style={{display:"flex",flexDirection:"column",gap:16}}>
         {/* Search bar */}
         <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -310,7 +311,7 @@ export default function UppValueApp(){
         </div>}
       </div>}
 
-      {/* ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ PORTFOLIO ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
+      {/* ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ PORTFOLIO ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
       {tab==="portfolio"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Portefeuille</h2><button onClick={()=>{setShowAdd(true);setAddMode("portfolio");}} style={bg}>+ Position</button></div>
         {portfolio.length===0?<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Ajoutez votre premiere position</div>:<>
@@ -334,7 +335,7 @@ export default function UppValueApp(){
         </>}
       </div>}
 
-      {/* ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ WATCHLIST ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
+      {/* ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ WATCHLIST ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
       {tab==="watchlist"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Watchlist</h2><button onClick={()=>{setShowAdd(true);setAddMode("watchlist");}} style={bg}>+ Ticker</button></div>
         {watchlist.length===0?<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Ajoutez des tickers</div>:
@@ -354,7 +355,7 @@ export default function UppValueApp(){
           </div>;})}
       </div>}
 
-      {/* ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ CHARTS ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
+      {/* ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ CHARTS ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
       {tab==="charts"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Graphiques vs S&P 500</h2>
         <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
@@ -389,7 +390,7 @@ export default function UppValueApp(){
         </div>:<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Selectionnez un ticker</div>}
       </div>}
 
-      {/* ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ SCREENER (S&P Table) ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
+      {/* ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ SCREENER (S&P Table) ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
       {tab==="screener"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Screener</h2>
         {enrichedP.length===0?<div style={{...cs,textAlign:"center",padding:48,color:V.txD}}>Ajoutez des positions pour voir les donnees</div>:
@@ -408,7 +409,7 @@ export default function UppValueApp(){
           </table></div>}
       </div>}
 
-      {/* ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ DCF ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
+      {/* ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ DCF ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ */}
       {tab==="dcf"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
         <h2 style={{margin:0,fontSize:18,fontWeight:700,color:V.green}}>Valeur Intrinseque (DCF)</h2>
         <div style={cs}>
