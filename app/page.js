@@ -46,18 +46,6 @@ const TICKER_INDICES=[
   {name:"Marches Emergents",ticker:"EEM"},
   {name:"Energie",ticker:"XLE"},
 ];
-const TRENDING_TICKERS=[
-  {ticker:"NVDA",name:"NVIDIA"},
-  {ticker:"TSLA",name:"Tesla"},
-  {ticker:"AAPL",name:"Apple"},
-  {ticker:"MSFT",name:"Microsoft"},
-  {ticker:"GOOGL",name:"Alphabet"},
-  {ticker:"AMZN",name:"Amazon"},
-  {ticker:"META",name:"Meta"},
-  {ticker:"AMD",name:"AMD"},
-  {ticker:"NFLX",name:"Netflix"},
-  {ticker:"PLTR",name:"Palantir"},
-];
 const TRENDING_TICKERS=["MSFT","NVDA","AAPL","AMZN","META","GOOGL","MA","FTNT","ASML","BKNG","FICO","NVO"];
 
 function Logo({ticker,size=32,customSrc}){const[e,setE]=useState(false);useEffect(()=>{setE(false);},[customSrc,ticker]);if(e)return<div style={{width:size,height:size,borderRadius:"50%",background:V.card3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*.38,fontWeight:700,color:V.txM,flexShrink:0}}>{(ticker||"?")[0]}</div>;return<img src={customSrc||getLogo(ticker)} width={size} height={size} style={{borderRadius:"50%",objectFit:"cover",background:V.card3,flexShrink:0}} onError={()=>setE(true)} alt=""/>;}
@@ -143,7 +131,6 @@ export default function UppValueApp(){
   const[displayCur,setDisplayCur]=useState("USD");
   const[fxRate,setFxRate]=useState(null);
   const[tickerData,setTickerData]=useState({});
-  const[trendingData,setTrendingData]=useState({});
   const[customLogos,setCustomLogos]=useState({});
   const[editingLogo,setEditingLogo]=useState(null);
 
@@ -160,7 +147,6 @@ export default function UppValueApp(){
   useEffect(()=>{const t=setInterval(()=>setClock(new Date()),30000);return()=>clearInterval(t);},[]);
   useEffect(()=>{(async()=>{try{const r=await fetch("/api/price?ticker=EURUSD=X");if(r.ok){const d=await r.json();if(d?.price)setFxRate(d.price);}}catch(e){}})();},[]);
   useEffect(()=>{(async()=>{const out={};await Promise.all(TICKER_INDICES.map(async i=>{try{const r=await fetch("/api/price?ticker="+encodeURIComponent(i.ticker));if(r.ok){const d=await r.json();out[i.ticker]={price:d.price,changePct:d.changePct};}}catch(e){}}));setTickerData(out);})();},[]);
-  useEffect(()=>{(async()=>{const out={};await Promise.all(TRENDING_TICKERS.map(async t=>{try{const r=await fetch("/api/price?ticker="+encodeURIComponent(t.ticker));if(r.ok){const d=await r.json();out[t.ticker]={price:d.price,changePct:d.changePct,currency:d.currency||"USD"};}}catch(e){}}));setTrendingData(out);})();},[]);
 
   // Load from localStorage (per-user)
   useEffect(()=>{try{const s=localStorage.getItem(storageKey);if(s){const d=JSON.parse(s);setPortfolio(d.portfolio||[]);setWatchlist(d.watchlist||[]);}else{setPortfolio([]);setWatchlist([]);}}catch(e){}},[storageKey]);
@@ -328,68 +314,6 @@ export default function UppValueApp(){
             </div>;})}
           </div>
         </div>
-
-        {portfolio.length>0&&<div style={{...cs,padding:32,background:"linear-gradient(135deg, rgba(143,121,161,0.08) 0%, rgba(255,255,255,0.04) 100%)"}}>
-          <div style={{fontSize:11,color:V.txD,letterSpacing:1,textTransform:"uppercase",fontWeight:600,marginBottom:8}}>Mon Portefeuille</div>
-          <div style={{display:"flex",alignItems:"baseline",gap:16,flexWrap:"wrap",marginBottom:16}}>
-            <div style={{fontSize:42,fontWeight:800,letterSpacing:-1}}>{fmtU(enrichedP.reduce((s,e)=>s+(e.mk||0),0))}</div>
-            {(()=>{const tInv=enrichedP.reduce((s,e)=>s+(e.inv||0),0);const tMk=enrichedP.reduce((s,e)=>s+(e.mk||0),0);const pl=tMk-tInv;const pp=tInv>0?(pl/tInv)*100:0;return<div style={{display:"flex",alignItems:"center",gap:12}}>
-              <div style={{fontSize:18,fontWeight:700,color:pl>=0?V.green:V.red,fontFamily:"monospace"}}>{pl>=0?"+":""}{fmtU(pl)}</div>
-              <div style={{padding:"4px 10px",borderRadius:8,fontSize:13,fontWeight:700,background:(pl>=0?V.green:V.red)+"22",color:pl>=0?V.green:V.red,fontFamily:"monospace"}}>{pl>=0?"+":""}{pp.toFixed(2)}%</div>
-            </div>;})()}
-          </div>
-          <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
-            <div style={{padding:"6px 14px",borderRadius:20,background:V.accent+"22",color:V.accent,fontSize:11,fontWeight:600}}>Total</div>
-            <div style={{padding:"6px 14px",borderRadius:20,background:"transparent",color:V.txD,fontSize:11,fontWeight:500,opacity:0.5}} title="Bientot disponible">Jour</div>
-            <div style={{padding:"6px 14px",borderRadius:20,background:"transparent",color:V.txD,fontSize:11,fontWeight:500,opacity:0.5}} title="Bientot disponible">Semaine</div>
-            <div style={{padding:"6px 14px",borderRadius:20,background:"transparent",color:V.txD,fontSize:11,fontWeight:500,opacity:0.5}} title="Bientot disponible">Mois</div>
-            <div style={{padding:"6px 14px",borderRadius:20,background:"transparent",color:V.txD,fontSize:11,fontWeight:500,opacity:0.5}} title="Bientot disponible">YTD</div>
-          </div>
-        </div>}
-
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-          <div style={cs}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-              <h3 style={{margin:0,fontSize:14,fontWeight:700,letterSpacing:0.3}}>Tendances</h3>
-              <button onClick={()=>setTab("screener")} style={{background:"transparent",border:"none",color:V.accent,cursor:"pointer",fontSize:11,fontWeight:600}}>Voir tout &rarr;</button>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {TRENDING_TICKERS.slice(0,5).map(t=>{const d=trendingData[t.ticker];const up=d&&d.changePct!=null&&d.changePct>=0;const inWatch=watchlist.some(w=>w.ticker===t.ticker);return<div key={t.ticker} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 6px",borderRadius:10}}>
-                <EditableLogo ticker={t.ticker} size={36}/>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:700,fontFamily:"monospace"}}>{t.ticker}</div>
-                  <div style={{fontSize:10,color:V.txD,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.name}</div>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:12,fontWeight:700,fontFamily:"monospace"}}>{d?fmtU(cvt(d.price,d.currency)):"---"}</div>
-                  {d&&d.changePct!=null&&<div style={{fontSize:10,color:up?V.green:V.red,fontFamily:"monospace",fontWeight:600}}>{up?"+":""}{d.changePct.toFixed(2)}%</div>}
-                </div>
-                <button onClick={()=>{if(!inWatch){const nw=[...watchlist,{ticker:t.ticker,name:t.name}];setWatchlist(nw);save(null,nw);}}} disabled={inWatch} title={inWatch?"Deja dans la watchlist":"Ajouter a la watchlist"} style={{width:30,height:30,borderRadius:"50%",border:"none",background:inWatch?V.card3:V.accent,color:"#fff",cursor:inWatch?"default":"pointer",fontSize:16,fontWeight:700,opacity:inWatch?0.4:1,flexShrink:0}}>+</button>
-              </div>;})}
-            </div>
-          </div>
-
-          <div style={cs}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-              <h3 style={{margin:0,fontSize:14,fontWeight:700,letterSpacing:0.3}}>Watchlist</h3>
-              <button onClick={()=>setTab("watchlist")} style={{background:"transparent",border:"none",color:V.accent,cursor:"pointer",fontSize:11,fontWeight:600}}>Voir tout &rarr;</button>
-            </div>
-            {watchlist.length===0?<div style={{textAlign:"center",padding:"30px 10px",color:V.txD,fontSize:12}}>Votre watchlist est vide.<br/><button onClick={()=>{setShowAdd(true);setAddMode("watchlist");}} style={{marginTop:10,padding:"8px 16px",borderRadius:8,border:"none",background:V.accent,color:"#fff",cursor:"pointer",fontSize:11,fontWeight:600}}>Ajouter</button></div>:<div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {enrichedW.slice(0,5).map(w=>{const up=w.chg!=null&&w.chg>=0;return<div key={w.ticker} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 6px",borderRadius:10}}>
-                <EditableLogo ticker={w.ticker} size={36}/>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:700,fontFamily:"monospace"}}>{w.ticker}</div>
-                  <div style={{fontSize:10,color:V.txD,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{w.name}</div>
-                </div>
-                <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:12,fontWeight:700,fontFamily:"monospace"}}>{w.live!=null?fmtU(w.live):"---"}</div>
-                  {w.chg!=null&&<div style={{fontSize:10,color:up?V.green:V.red,fontFamily:"monospace",fontWeight:600}}>{up?"+":""}{w.chg.toFixed(2)}%</div>}
-                </div>
-              </div>;})}
-            </div>}
-          </div>
-        </div>
-
         
         {/* Search bar */}
         <div style={{display:"flex",alignItems:"center",gap:12}}>
